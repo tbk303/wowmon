@@ -19,7 +19,7 @@ public final class Main {
 		shell.setText("Wowmon " + VERSION);
 		shell.setLayout(new FillLayout());
 
-		final Wowmon wowmon = new Wowmon(shell);
+		new Wowmon(shell);
 
 		shell.pack();
 		shell.open();
