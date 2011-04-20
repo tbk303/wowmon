@@ -11,6 +11,7 @@ import name.tbh.wowmon.common.Util;
 import name.tbh.wowmon.measurement.DoubleMeasurements;
 import name.tbh.wowmon.measurement.LongMeasurements;
 import name.tbh.wowmon.measurement.Measurements;
+import name.tbh.wowmon.sensor.ClientLogger;
 import name.tbh.wowmon.sensor.JmxSession;
 import name.tbh.wowmon.sensor.JmxSessionCredentials;
 import name.tbh.wowmon.sensor.RemoteCpuUsageJmxSensor;
@@ -24,6 +25,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.MessageBox;
@@ -33,6 +35,8 @@ public class Wowmon extends Composite {
 
 	// Update interval in milliseconds
 	public static final int INTERVAL = 1000;
+	// IP logging interval in milliseconds
+	public static final int LOG_INTERVAL = 10000;
 	private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
 
 	private final Text url;
@@ -47,6 +51,9 @@ public class Wowmon extends Composite {
 
 	private boolean connected = false;
 	private Composite statistics;
+
+	private String logPath;
+
 	private LongMeasurements connTotal;
 	private LongMeasurements connTotalRtmp;
 	private LongMeasurements connTotalHttp;
@@ -229,6 +236,11 @@ public class Wowmon extends Composite {
 		connect.addSelectionListener(new SimpleListener() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
+				FileDialog fd = new FileDialog(getShell(), SWT.SAVE);
+				fd.setText("Select log file");
+				fd.setFilterExtensions(new String[] { "*.log" });
+				logPath = fd.open();
+
 				new Thread() {
 					@Override
 					public void run() {
@@ -293,9 +305,33 @@ public class Wowmon extends Composite {
 		setConnectedState(success);
 
 		if (success) {
+			final ClientLogger logger;
+
+			try {
+				logger = new ClientLogger(session, logPath);
+			} catch (final IOException e) {
+				e.printStackTrace();
+				errorDialog("Log path error", "Error opening log file\n\n" + e);
+				setConnectedState(false);
+				return;
+			}
+
 			status.setText("Connected");
 
-			initWidgets(session);
+			initSensors(session);
+
+			new Thread() {
+				public void run() {
+					while (Wowmon.this.connected) {
+						try {
+							logger.update();
+							Thread.sleep(LOG_INTERVAL);
+						} catch (InterruptedException e) {
+							// NOTHING
+						}
+					}
+				};
+			}.start();
 
 			new Thread() {
 				public void run() {
@@ -330,7 +366,7 @@ public class Wowmon extends Composite {
 		}
 	}
 
-	private void initWidgets(final JmxSession session) {
+	private void initSensors(final JmxSession session) {
 		sensors.clear();
 
 		sensors.add(new RemoteJmxSensor(session, "WowzaMediaServerPro:name=Connections", "current", connTotal));
@@ -345,57 +381,57 @@ public class Wowmon extends Composite {
 		sensors.add(new RemoteJmxSensor(session, "WowzaMediaServerPro:name=IOPerformanceHTTPCupertino",
 				"messagesOutBytesRate", bytesTotalHttp));
 
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=Connections",
-				"current", connHall));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=ConnectionsRTMP",
-				"current", connHallRtmp));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=ConnectionsHTTPCupertino",
-				"current", connHallHttp));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=Connections",
+		//				"current", connHall));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=ConnectionsRTMP",
+		//				"current", connHallRtmp));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=ConnectionsHTTPCupertino",
+		//				"current", connHallHttp));
+		//
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=IOPerformance",
+		//				"messagesOutBytesRate", bytesHall));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=IOPerformanceRTMP",
+		//				"messagesOutBytesRate", bytesHallRtmp));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=IOPerformanceHTTPCupertino",
+		//				"messagesOutBytesRate", bytesHallHttp));
 
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=IOPerformance",
-				"messagesOutBytesRate", bytesHall));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=IOPerformanceRTMP",
-				"messagesOutBytesRate", bytesHallRtmp));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=mainhall,name=IOPerformanceHTTPCupertino",
-				"messagesOutBytesRate", bytesHallHttp));
-
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=Connections",
-				"current", connSeminar));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=ConnectionsRTMP",
-				"current", connSeminarRtmp));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=ConnectionsHTTPCupertino",
-				"current", connSeminarHttp));
-
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=IOPerformance",
-				"messagesOutBytesRate", bytesSeminar));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=IOPerformanceRTMP",
-				"messagesOutBytesRate", bytesSeminarRtmp));
-		sensors.add(new RemoteJmxSensor(
-				session,
-				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=IOPerformanceHTTPCupertino",
-				"messagesOutBytesRate", bytesSeminarHttp));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=Connections",
+		//				"current", connSeminar));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=ConnectionsRTMP",
+		//				"current", connSeminarRtmp));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=ConnectionsHTTPCupertino",
+		//				"current", connSeminarHttp));
+		//
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=IOPerformance",
+		//				"messagesOutBytesRate", bytesSeminar));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=IOPerformanceRTMP",
+		//				"messagesOutBytesRate", bytesSeminarRtmp));
+		//		sensors.add(new RemoteJmxSensor(
+		//				session,
+		//				"WowzaMediaServerPro:vHosts=VHosts,vHostName=_defaultVHost_,applications=Applications,applicationName=live,applicationInstances=ApplicationInstances,applicationInstanceName=seminar,name=IOPerformanceHTTPCupertino",
+		//				"messagesOutBytesRate", bytesSeminarHttp));
 
 		sensors.add(new RemoteCpuUsageJmxSensor(session, systemLoad));
 		sensors.add(new RemoteJmxSensor(session, "java.lang:type=Memory", "HeapMemoryUsage", "used", systemMemory));
