@@ -44,6 +44,8 @@ public class JmxSession {
 	public Object readObject(String name, String attributeName) {
 		try {
 			return connection.getAttribute(new ObjectName(name), attributeName);
+		} catch (IOException e) {
+			throw new DisconnectedException(e);
 		} catch (Exception e) {
 			System.err.println("Warning: Error querying attribute \"" + attributeName + "\" in \"" + name + "\": " + e);
 			return null;
@@ -62,12 +64,19 @@ public class JmxSession {
 					// EMPTY (a client present during the query may have disconnected)
 				}
 			}
-
+		} catch (IOException e) {
+			throw new DisconnectedException(e);
 		} catch (Exception e) {
 			System.err
 					.println("Warning: Error querying attributes \"" + attributeName + "\" of \"" + name + "\": " + e);
 		}
 
 		return ret;
+	}
+
+	public void disconnect() throws IOException {
+		if (connector != null) {
+			connector.close();
+		}
 	}
 }

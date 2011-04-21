@@ -29,25 +29,19 @@ public class ClientLogger implements Sensor {
 
 	@Override
 	public void update() {
-		//		final List<String> hallClients = session
-		//				.readStringAttributes(
-		//						"WowzaMediaServerPro:applicationInstanceName=mainhall,applicationInstances=ApplicationInstances,applicationName=*,applications=Applications,clientId=*,clients=Clients,name=Client,vHostName=_defaultVHost_,vHosts=VHosts",
-		//						"ip");
-		//		final List<String> seminarClients = session
-		//				.readStringAttributes(
-		//						"WowzaMediaServerPro:applicationInstanceName=seminar,applicationInstances=ApplicationInstances,applicationName=*,applications=Applications,clientId=*,clients=Clients,name=Client,vHostName=_defaultVHost_,vHosts=VHosts",
-		//						"ip");
-		final List<String> setupClients = session
+		final List<String> hallClients = session
 				.readStringAttributes(
-						"WowzaMediaServerPro:applicationInstanceName=aufbau,applicationInstances=ApplicationInstances,applicationName=*,applications=Applications,clientId=*,clients=Clients,name=Client,vHostName=_defaultVHost_,vHosts=VHosts",
+						"WowzaMediaServerPro:applicationInstanceName=mainhall,applicationInstances=ApplicationInstances,applicationName=*,applications=Applications,clientId=*,clients=Clients,name=Client,vHostName=_defaultVHost_,vHosts=VHosts",
+						"ip");
+		final List<String> seminarClients = session
+				.readStringAttributes(
+						"WowzaMediaServerPro:applicationInstanceName=seminars,applicationInstances=ApplicationInstances,applicationName=*,applications=Applications,clientId=*,clients=Clients,name=Client,vHostName=_defaultVHost_,vHosts=VHosts",
 						"ip");
 
-		final List<String> currentClients = new ArrayList<String>(/*hallClients.size()
-																	+ seminarClients.size() +*/setupClients.size());
+		final List<String> currentClients = new ArrayList<String>(hallClients.size() + seminarClients.size());
 
-		currentClients.addAll(setupClients);
-		//		currentClients.addAll(seminarClients);
-		//		currentClients.addAll(hallClients);
+		currentClients.addAll(seminarClients);
+		currentClients.addAll(hallClients);
 
 		for (final String client : currentClients) {
 			if (knownClients.add(client)) {

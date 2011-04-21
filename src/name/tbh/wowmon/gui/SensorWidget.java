@@ -1,9 +1,8 @@
 package name.tbh.wowmon.gui;
 
+import java.awt.Color;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,10 +73,14 @@ public class SensorWidget<T> extends Composite {
 		TimeTableXYDataset dataset = new TimeTableXYDataset();
 		XYBarRenderer renderer = new StackedXYBarRenderer(0.0);
 		renderer.setBarPainter(new StandardXYBarPainter());
-		renderer.setDrawBarOutline(true);
+		renderer.setDrawBarOutline(false);
 		renderer.setShadowVisible(false);
 
-		XYPlot plot = new XYPlot(dataset, new DateAxis("time"), new NumberAxis("Count"), renderer);
+		if (parts == null || parts.length == 0) {
+			renderer.setSeriesPaint(0, Color.green);
+		}
+
+		XYPlot plot = new XYPlot(dataset, new DateAxis("Time"), new NumberAxis("Count"), renderer);
 
 		plot.getDomainAxis().setLowerMargin(0.0);
 		plot.getDomainAxis().setUpperMargin(0.0);
@@ -88,7 +91,7 @@ public class SensorWidget<T> extends Composite {
 		realChart.setTitle((String) null);
 
 		chart = new ChartComposite(this, SWT.NONE, realChart, true);
-		chart.setLayoutData(new GridData(320, 180));
+		chart.setLayoutData(new GridData(300, 180));
 
 		final Composite labels = new Composite(this, SWT.NONE);
 		labels.setLayout(new GridLayout(5, false));
@@ -126,12 +129,14 @@ public class SensorWidget<T> extends Composite {
 		final TimeTableXYDataset dataset = (TimeTableXYDataset) plot.getDataset();
 		dataset.clear();
 
+		final Date now = new Date();
+
 		if (parts.isEmpty()) {
-			fillDataset(dataset, totals);
+			fillDataset(dataset, totals, now);
 		} else {
 			for (final MeasurementsDisplay<T> m : parts.values()) {
 				final Measurements<T> measurements = m.measurements;
-				fillDataset(dataset, measurements);
+				fillDataset(dataset, measurements, now);
 				m.label.setText(format(m.measurements.getCurrentValue()));
 				m.labelMin.setText("(" + format(m.measurements.getMin()));
 				m.labelMax.setText(" " + format(m.measurements.getMax()) + " ");
@@ -140,19 +145,20 @@ public class SensorWidget<T> extends Composite {
 		}
 	}
 
-	private void fillDataset(final TimeTableXYDataset dataset, final Measurements<T> measurements) {
-		final Calendar calendar = new GregorianCalendar();
+	private void fillDataset(final TimeTableXYDataset dataset, final Measurements<T> measurements, final Date now) {
 
 		final List<Double> data = new ArrayList<Double>();
 		for (final T raw : measurements) {
 			data.add(raw == null ? 0.0 : value(raw));
 		}
 
+		long current = now.getTime();
+
 		for (final Double value : data) {
 
-			Date start = calendar.getTime();
-			calendar.add(Calendar.MILLISECOND, Wowmon.INTERVAL);
-			Date end = calendar.getTime();
+			Date start = new Date(current);
+			current += Wowmon.INTERVAL;
+			Date end = new Date(current);
 
 			TimePeriod period = new SimpleTimePeriod(start, end);
 
